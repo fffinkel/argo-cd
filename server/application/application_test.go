@@ -1708,52 +1708,6 @@ p, test-user, applications, delete/fake.io/PodTest/*, default/test-app, deny
 	})
 }
 
-func TestBustedPatchResourcesRBAC(t *testing.T) {
-	ctx := context.Background()
-	// nolint:staticcheck
-	ctx = context.WithValue(ctx, "claims", &jwt.RegisteredClaims{Subject: "test-user"})
-	testApp := newTestApp()
-	appServer := newTestAppServer(t, testApp)
-	appServer.enf.SetDefaultRole("")
-
-	req := application.ApplicationResourcePatchRequest{
-		Name:         &testApp.Name,
-		AppNamespace: &testApp.Namespace,
-		Group:        strToPtr("fake.io"),
-		Kind:         strToPtr("PodTest"),
-		Namespace:    strToPtr("fake-ns"),
-		ResourceName: strToPtr("my-pod-test"),
-	}
-
-	expectedErrorWhenUpdateAllowed := "rpc error: code = InvalidArgument desc = PodTest fake.io my-pod-test not found as part of application test-app"
-
-	t.Run("update with application permission", func(t *testing.T) {
-		_ = appServer.enf.SetBuiltinPolicy(`
-p, test-user, applications, update, default/test-app, allow
-`)
-		_, err := appServer.PatchResource(ctx, &req)
-		assert.Equal(t, expectedErrorWhenUpdateAllowed, err.Error())
-	})
-
-	t.Run("patch with specific subresource denied", func(t *testing.T) {
-		_ = appServer.enf.SetBuiltinPolicy(`
-p, test-user, applications, update, default/test-app, allow
-p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
-`)
-		_, err := appServer.PatchResource(ctx, &req)
-		assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
-	})
-
-	t.Run("patch with any subresource denied", func(t *testing.T) {
-		_ = appServer.enf.SetBuiltinPolicy(`
-p, test-user, applications, update, default/test-app, allow
-p, test-user, applications, update/*, default/test-app, deny
-`)
-		_, err := appServer.PatchResource(ctx, &req)
-		assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
-	})
-}
-
 func TestPatchResourcesRBAC(t *testing.T) {
 	ctx := context.Background()
 	// nolint:staticcheck
@@ -1814,6 +1768,79 @@ p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
 `)
 		_, err := appServer.PatchResource(ctx, &req)
 		assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
+	})
+}
+
+func TestPatchApplicationRBAC(t *testing.T) {
+	ctx := context.Background()
+	// nolint:staticcheck
+	ctx = context.WithValue(ctx, "claims", &jwt.RegisteredClaims{Subject: "test-user"})
+	testApp := newTestApp()
+	appServer := newTestAppServer(t, testApp)
+	appServer.enf.SetDefaultRole("")
+	testApp.Spec.Project = ""
+
+	appSpecReq := application.ApplicationUpdateSpecRequest{
+		Name:         &testApp.Name,
+		AppNamespace: &testApp.Namespace,
+		Spec:         &testApp.Spec,
+	}
+	resourceReq := application.ApplicationResourcePatchRequest{
+		Name:         &testApp.Name,
+		AppNamespace: &testApp.Namespace,
+		Group:        strToPtr("fake.io"),
+		Kind:         strToPtr("PodTest"),
+		Namespace:    strToPtr("fake-ns"),
+		ResourceName: strToPtr("my-pod-test"),
+	}
+
+	t.Run("update application spec with generic permission", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+p, test-user, applications, update, */*, allow
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+	})
+
+	t.Run("update application spec with application permission", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+p, test-user, applications, update/application, default/test-app, allow
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+	})
+
+	t.Run("update application spec with specific subresource denied", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+p, test-user, applications, update/application, default/test-app, allow
+p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+		_, err = appServer.PatchResource(ctx, &resourceReq)
+		assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
+	})
+
+	expectedErrorWhenDeleteAllowed := "rpc error: code = InvalidArgument desc = PodTest fake.io my-pod-test not found as part of application test-app"
+
+	t.Run("generic allow still overrides specific deny", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+p, test-user, applications, update, default/test-app, allow
+p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+		_, err = appServer.PatchResource(ctx, &resourceReq)
+		assert.Equal(t, expectedErrorWhenDeleteAllowed, err.Error())
+	})
+
+	t.Run("generic allow still overrides specific application deny", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update, default/test-app, allow
+	p, test-user, applications, update/application, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
 	})
 }
 
