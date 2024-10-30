@@ -979,7 +979,7 @@ func (s *Server) Update(ctx context.Context, q *application.ApplicationUpdateReq
 		validate = *q.Validate
 	}
 	a, err = s.validateAndUpdateApp(ctx, q.Application, false, validate, rbacpolicy.ActionUpdate, q.GetProject())
-	if err != nil && errors.Is(err, permissionDeniedErr) {
+	if err != nil && status.Code(err) == codes.PermissionDenied {
 		action := fmt.Sprintf("%s/application", rbacpolicy.ActionUpdate)
 		a, err = s.validateAndUpdateApp(ctx, q.Application, false, validate, action, q.GetProject())
 	}
@@ -992,7 +992,7 @@ func (s *Server) UpdateSpec(ctx context.Context, q *application.ApplicationUpdat
 		return nil, fmt.Errorf("error updating application spec: spec is nil in request")
 	}
 	a, _, err := s.getApplicationEnforceRBACClient(ctx, rbacpolicy.ActionUpdate, q.GetProject(), q.GetAppNamespace(), q.GetName(), "")
-	if err != nil && errors.Is(err, permissionDeniedErr) {
+	if err != nil && status.Code(err) == codes.PermissionDenied {
 		action := fmt.Sprintf("%s/application", rbacpolicy.ActionUpdate)
 		a, _, err = s.getApplicationEnforceRBACClient(ctx, action, q.GetProject(), q.GetAppNamespace(), q.GetName(), "")
 	}
@@ -1006,7 +1006,7 @@ func (s *Server) UpdateSpec(ctx context.Context, q *application.ApplicationUpdat
 		validate = *q.Validate
 	}
 	updatedApp, err := s.validateAndUpdateApp(ctx, a, false, validate, rbacpolicy.ActionUpdate, q.GetProject())
-	if err != nil && errors.Is(err, permissionDeniedErr) {
+	if err != nil && status.Code(err) == codes.PermissionDenied {
 		action := fmt.Sprintf("%s/application", rbacpolicy.ActionUpdate)
 		updatedApp, err = s.validateAndUpdateApp(ctx, a, false, validate, action, q.GetProject())
 	}
@@ -1352,7 +1352,7 @@ func (s *Server) getAppResources(ctx context.Context, a *appv1.Application) (*ap
 
 func (s *Server) getAppLiveResource(ctx context.Context, action string, q *application.ApplicationResourceRequest) (*appv1.ResourceNode, *rest.Config, *appv1.Application, error) {
 	a, _, err := s.getApplicationEnforceRBACInformer(ctx, action, q.GetProject(), q.GetAppNamespace(), q.GetName())
-	if err != nil && errors.Is(err, permissionDeniedErr) && (action == rbacpolicy.ActionDelete || action == rbacpolicy.ActionUpdate) {
+	if err != nil && status.Code(err) == codes.PermissionDenied && (action == rbacpolicy.ActionDelete || action == rbacpolicy.ActionUpdate) {
 		// If users dont have permission on the whole applications, maybe they have fine-grained access to the specific resources
 		action = fmt.Sprintf("%s/%s/%s/%s/%s", action, q.GetGroup(), q.GetKind(), q.GetNamespace(), q.GetResourceName())
 		a, _, err = s.getApplicationEnforceRBACInformer(ctx, action, q.GetProject(), q.GetAppNamespace(), q.GetName())
