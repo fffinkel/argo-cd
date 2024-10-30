@@ -1780,81 +1780,81 @@ func TestPatchApplicationRBAC(t *testing.T) {
 	appServer.enf.SetDefaultRole("")
 	testApp.Spec.Project = ""
 
-	// appSpecReq := application.ApplicationUpdateSpecRequest{
-	// 	Name:         &testApp.Name,
-	// 	AppNamespace: &testApp.Namespace,
-	// 	Spec:         &testApp.Spec,
-	// }
+	appSpecReq := application.ApplicationUpdateSpecRequest{
+		Name:         &testApp.Name,
+		AppNamespace: &testApp.Namespace,
+		Spec:         &testApp.Spec,
+	}
 
-	// t.Run("update application spec with generic permission", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update, */*, allow
-	// `)
-	// 	_, err := appServer.UpdateSpec(ctx, &appSpecReq)
-	// 	assert.NoError(t, err)
-	// })
+	t.Run("update application spec with generic permission", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update, */*, allow
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+	})
 
-	// t.Run("update application spec with application permission", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update/application, default/test-app, allow
-	// `)
-	// 	_, err := appServer.UpdateSpec(ctx, &appSpecReq)
-	// 	assert.NoError(t, err)
-	// })
+	t.Run("update application spec with application permission", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update/application, default/test-app, allow
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+	})
 
-	// resourceReq := application.ApplicationResourcePatchRequest{
-	// 	Name:         &testApp.Name,
-	// 	AppNamespace: &testApp.Namespace,
-	// 	Group:        strToPtr("fake.io"),
-	// 	Kind:         strToPtr("PodTest"),
-	// 	Namespace:    strToPtr("fake-ns"),
-	// 	ResourceName: strToPtr("my-pod-test"),
-	// }
+	resourceReq := application.ApplicationResourcePatchRequest{
+		Name:         &testApp.Name,
+		AppNamespace: &testApp.Namespace,
+		Group:        strToPtr("fake.io"),
+		Kind:         strToPtr("PodTest"),
+		Namespace:    strToPtr("fake-ns"),
+		ResourceName: strToPtr("my-pod-test"),
+	}
 
-	// t.Run("update application spec with specific subresource denied", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update/application, default/test-app, allow
-	// p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
-	// `)
-	// 	_, err := appServer.UpdateSpec(ctx, &appSpecReq)
-	// 	assert.NoError(t, err)
-	// 	_, err = appServer.PatchResource(ctx, &resourceReq)
-	// 	assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
-	// })
+	t.Run("update application spec with specific subresource denied", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update/application, default/test-app, allow
+	p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+		_, err = appServer.PatchResource(ctx, &resourceReq)
+		assert.Equal(t, codes.PermissionDenied.String(), status.Code(err).String())
+	})
 
-	// expectedErrorWhenDeleteAllowed := "rpc error: code = InvalidArgument desc = PodTest fake.io my-pod-test not found as part of application test-app"
+	expectedErrorWhenDeleteAllowed := "rpc error: code = InvalidArgument desc = PodTest fake.io my-pod-test not found as part of application test-app"
 
-	// t.Run("generic allow still overrides specific deny", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update, default/test-app, allow
-	// p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
-	// `)
-	// 	_, err := appServer.UpdateSpec(ctx, &appSpecReq)
-	// 	assert.NoError(t, err)
-	// 	_, err = appServer.PatchResource(ctx, &resourceReq)
-	// 	assert.Equal(t, expectedErrorWhenDeleteAllowed, err.Error())
-	// })
+	t.Run("generic allow still overrides specific deny", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update, default/test-app, allow
+	p, test-user, applications, update/fake.io/PodTest/*, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+		_, err = appServer.PatchResource(ctx, &resourceReq)
+		assert.Equal(t, expectedErrorWhenDeleteAllowed, err.Error())
+	})
 
-	// t.Run("generic allow still overrides specific application deny", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update, default/test-app, allow
-	// p, test-user, applications, update/application, default/test-app, deny
-	// `)
-	// 	_, err := appServer.UpdateSpec(ctx, &appSpecReq)
-	// 	assert.NoError(t, err)
-	// })
+	t.Run("generic allow still overrides specific application deny", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update, default/test-app, allow
+	p, test-user, applications, update/application, default/test-app, deny
+	`)
+		_, err := appServer.UpdateSpec(ctx, &appSpecReq)
+		assert.NoError(t, err)
+	})
 
 	appReq := application.ApplicationUpdateRequest{
 		Application: testApp,
 	}
 
-	// t.Run("update application with generic permission", func(t *testing.T) {
-	// 	_ = appServer.enf.SetBuiltinPolicy(`
-	// p, test-user, applications, update, default/test-app, allow
-	// `)
-	// 	_, err := appServer.Update(ctx, &appReq)
-	// 	require.NoError(t, err)
-	// })
+	t.Run("update application with generic permission", func(t *testing.T) {
+		_ = appServer.enf.SetBuiltinPolicy(`
+	p, test-user, applications, update, default/test-app, allow
+	`)
+		_, err := appServer.Update(ctx, &appReq)
+		require.NoError(t, err)
+	})
 
 	t.Run("update application with application permission", func(t *testing.T) {
 		_ = appServer.enf.SetBuiltinPolicy(`
