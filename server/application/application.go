@@ -966,7 +966,7 @@ func (s *Server) Update(ctx context.Context, q *application.ApplicationUpdateReq
 	}
 	a := q.GetApplication()
 	err := s.enf.EnforceErr(ctx.Value("claims"), rbacpolicy.ResourceApplications, rbacpolicy.ActionUpdate, a.RBACName(s.ns))
-	if err != nil && errors.Is(err, permissionDeniedErr) {
+	if err != nil && status.Code(err) == codes.PermissionDenied {
 		action := fmt.Sprintf("%s/application", rbacpolicy.ActionUpdate)
 		err = s.enf.EnforceErr(ctx.Value("claims"), rbacpolicy.ResourceApplications, action, a.RBACName(s.ns))
 	}
