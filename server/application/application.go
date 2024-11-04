@@ -1333,10 +1333,19 @@ func (s *Server) getAppResources(ctx context.Context, a *appv1.Application) (*ap
 }
 
 func (s *Server) getAppLiveResource(ctx context.Context, action string, q *application.ApplicationResourceRequest) (*appv1.ResourceNode, *rest.Config, *appv1.Application, error) {
-	if action == rbacpolicy.ActionDelete || action == rbacpolicy.ActionUpdate {
+	enableV3, err := s.settingsMgr.GetServerRBACEnableV3()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if enableV3 && (action == rbacpolicy.ActionDelete || action == rbacpolicy.ActionUpdate) {
 		action = fmt.Sprintf("%s/%s/%s/%s/%s", action, q.GetGroup(), q.GetKind(), q.GetNamespace(), q.GetResourceName())
 	}
 	a, _, err := s.getApplicationEnforceRBACInformer(ctx, action, q.GetProject(), q.GetAppNamespace(), q.GetName())
+	if !enableV3 && err != nil && errors.Is(err, permissionDeniedErr) && (action == rbacpolicy.ActionDelete || action == rbacpolicy.ActionUpdate) {
+		action = fmt.Sprintf("%s/%s/%s/%s/%s", action, q.GetGroup(), q.GetKind(), q.GetNamespace(), q.GetResourceName())
+		a, _, err = s.getApplicationEnforceRBACInformer(ctx, action, q.GetProject(), q.GetAppNamespace(), q.GetName())
+	}
 	if err != nil {
 		return nil, nil, nil, err
 	}
